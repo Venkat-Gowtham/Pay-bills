@@ -1,0 +1,107 @@
+.dialog {
+  backdrop-filter: blur(12px);
+  border-radius: 12px; /* Softer corner radius */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); /* Enhanced shadow for depth */
+}
+
+.popupTitle {
+  text-align: center;
+  padding: 24px 28px; /* Slight increase for more padding */
+  border-bottom: 1px solid #ddd; /* Lighter border */
+}
+
+.projectTitle {
+  font-weight: 600;
+  font-size: 1.8rem; /* Slightly larger for emphasis */
+  color: #222; /* Darker color for better readability */
+}
+
+.divider {
+  margin: 18px 0; /* Increased spacing */
+  border-bottom: 1px solid #ddd;
+}
+
+.popupContent {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px; /* Increased gap for better spacing */
+  padding: 20px 0; /* Increased padding for better breathing room */
+}
+
+.leftSection,
+.rightSection {
+  flex: 1;
+  min-width: 180px; /* Slightly larger minimum width for balance */
+}
+
+.rightSection {
+  text-align: right;
+  padding-right: 15px; /* Added padding for spacing on smaller screens */
+}
+
+.statusChip {
+  margin-top: 18px;
+  font-weight: 600;
+  padding: 6px 20px; /* Larger padding for better visibility */
+  border-radius: 8px;
+  background-color: #e0f7fa; /* Light background for better contrast */
+  color: #00796b; /* Darker text color */
+}
+
+.imageContainer {
+  display: flex;
+  gap: 18px; /* Increased gap for image separation */
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.previewImage {
+  width: 130px; /* Slightly larger images */
+  height: 130px;
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease; /* Added box-shadow transition */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* Deeper shadow for better visual impact */
+}
+
+.previewImage:hover {
+  transform: scale(1.08); /* Slightly larger hover effect */
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); /* More prominent shadow on hover */
+}
+
+.fullSizeImage {
+  width: 100%;
+  height: auto;
+  max-height: 85vh; /* Increased for larger previews */
+  object-fit: contain;
+  border-radius: 12px; /* Softer edges */
+  padding: 12px; /* Added padding for better spacing */
+}
+
+.closeButton {
+  color: #0288d1; /* Brighter color for visibility */
+  font-weight: 700; /* Increased font-weight for emphasis */
+  cursor: pointer; /* Cursor pointer to indicate interactivity */
+}
+
+@media (max-width: 600px) {
+  .popupContent {
+    flex-direction: column;
+    gap: 12px; /* Slightly more spacing for smaller screens */
+  }
+
+  .leftSection,
+  .rightSection {
+    min-width: 100%;
+    text-align: center;
+    padding-bottom: 12px; /* Added padding for better spacing */
+  }
+
+  .statusChip {
+    align-self: center;
+    padding: 8px 16px; /* Adjusted padding for mobile responsiveness */
+  }
+}
