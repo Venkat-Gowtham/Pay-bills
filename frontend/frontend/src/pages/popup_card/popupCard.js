@@ -34,6 +34,7 @@ const PopupCard = ({ open, onClose, data, userData }) => {
   const [selectedImage, setSelectedImage] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [declineReasonVisible, setDeclineReasonVisible] = useState(false);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [selectedDeclineReason, setSelectedDeclineReason] = useState("");
   const { statusColors, statusDef, role } = useContext(DataContext);
   const theme = useTheme();
@@ -182,6 +183,8 @@ const PopupCard = ({ open, onClose, data, userData }) => {
 
   const handleFileChange = (event) => {
     const files = Array.from(event.target.files);
+    const newImagePreviews = files.map((file) => URL.createObjectURL(file));
+    setImagePreviews((prev) => [...prev, ...newImagePreviews]);
     setSelectedFiles((prevFiles) => [
       ...prevFiles,
       ...files.filter(
@@ -189,7 +192,24 @@ const PopupCard = ({ open, onClose, data, userData }) => {
       ),
     ]);
   };
+  
 
+  const handleRemoveImage = (index) => {
+    const newImagePreviews = [...imagePreviews];
+    newImagePreviews.splice(index, 1);
+    setImagePreviews(newImagePreviews);
+
+    const newFiles = [...selectedFiles];
+    newFiles.splice(index, 1);
+    setSelectedFiles(newFiles);
+    // URL.revokeObjectURL(selectedFiles[index]); // Revoke the URL
+    // setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+// const handleFileChange = (event) => {
+  //   const files = Array.from(event.target.files);
+  //   const newImagePreviews = files.map((file) => URL.createObjectURL(file));
+  //   setSelectedFiles((prev) => [...prev, ...newImagePreviews]);
+  // };
   const handleStatus = async (action, additionalData = {}) => {
     const token = localStorage.getItem("token");
     console.log(
@@ -216,6 +236,9 @@ const PopupCard = ({ open, onClose, data, userData }) => {
       alert(response.data.message);
     }
     console.log(response.data);
+    setSelectedFiles([]);
+    setImagePreviews([]);
+    onClose();
   };
 
   const handleSuspend = async () => {
@@ -241,20 +264,23 @@ const PopupCard = ({ open, onClose, data, userData }) => {
 
   const handleStatusWithImages = async () => {
     try {
+      console.log(selectedFiles);
       const imageUrls = await Promise.all(
         selectedFiles.map((file) => uploadImage(file))
       );
-      console.log(
-        `uploaded image urls are ${imageUrls}  and field is ${field}`
-      );
+      console.log(`uploaded image urls are ${imageUrls}  and field is ${field}`);
+  
       if (field === "paymentDone") {
-        imageUrls.concat(data.AccountantUri);
-        handleStatus(true, { AccountantUri: imageUrls });
+        // Correctly concatenate the arrays
+        const updatedAccountantUri = imageUrls.concat(data.AccountantUri || []);
+        handleStatus(true, { AccountantUri: updatedAccountantUri });
         return;
       }
+  
       if (field === "uploadReceipts") {
-        imageUrls.concat(data.Recipts);
-        handleStatus(true, { Recipts: imageUrls });
+        // Correctly concatenate the arrays
+        const updatedRecipts = imageUrls.concat(data.Recipts || []);
+        handleStatus(true, { Recipts: updatedRecipts });
         return;
       }
     } catch (error) {
@@ -262,6 +288,7 @@ const PopupCard = ({ open, onClose, data, userData }) => {
       alert("Error setting status");
     }
   };
+  
 
   const renderButtons = () => {
     if (status === statusDef.Suspend) {
@@ -597,6 +624,40 @@ const PopupCard = ({ open, onClose, data, userData }) => {
               </Typography>
             </Box>
           )}
+          <Divider />
+          {imagePreviews.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="h6">Selected Files:</Typography>
+              <Box display="flex" flexWrap="wrap">
+                {imagePreviews.map((url, index) => (
+                  <Box  position="relative" key={index} marginRight="10px" marginBottom="10px">
+                    <img
+                    src ={url}
+                    alt={`url ${index + 1}`}
+                    style={{
+                      width: "100px",
+                      height: "100px",
+                      objectFit: "cover",
+                    }}
+                  />
+                  <IconButton
+                    onClick={() => handleRemoveImage(index)}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      color: "red",
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+          <Divider />
+
           <DialogActions>{renderButtons()}</DialogActions>
         </Dialog>
       )}
