@@ -83,7 +83,7 @@ import fs from "fs";
 import xlsx from "xlsx";
 // Import routes
 import authRoutes from "./src/router/authroutes.js";
-import transactionRoutes from "./src/router/transactionRoutes.js";
+import transactionRoutes from "./src/router/transactionroutes.js";
 import userRoutes from "./src/router/userroutes.js";
 import notificationRoutes from "./src/router/notificationRoutes.js";
 import statusRoute from "./src/router/statusrouter.js";
