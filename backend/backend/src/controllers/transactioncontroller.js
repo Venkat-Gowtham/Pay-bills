@@ -567,28 +567,52 @@ export const getTableData = async (req, res) => {
         ];
         break;
 
-      case "Accountant":
-        if (!projectId) {
-          return res
-            .status(400)
-            .json({ message: "Project ID is required for accountants" });
-        }
-        // Fetch data where status is NOT "Submitted" and projectId matches
-        query = adminDb
-          .collection("transactions")
-          .where("projectId", "==", projectId)
-          .where("status", "in", [
-            "Approved",
-            "Uploaded to Bank",
-            "Payment done,Awaiting for Bills",
-            "Bills Quality Hold",
-            "Bills Accepted",
-            "Denied",
-            "Bills Quality failed",
-            "Suspended",
-          ])
-          .orderBy("timestamp", "desc");
-        break;
+        case "Accountant":
+          if (!projectId) {
+              return res
+                  .status(400)
+                  .json({ message: "Project ID is required for accountants" });
+          }
+          // Fetch data where status is NOT "Submitted" and projectId matches OR where the senderId is the current accountant's email
+          const accountantProjectQuery = adminDb
+              .collection("transactions")
+              .where("projectId", "==", projectId)
+              .where("status", "in", [
+                  "Approved",
+                  "Uploaded to Bank",
+                  "Payment done,Awaiting for Bills",
+                  "Bills Quality Hold",
+                  "Bills Accepted",
+                  "Denied",
+                  "Bills Quality failed",
+                  "Suspended",
+              ])
+              .orderBy("timestamp", "desc");
+      
+          const accountantSenderQuery = adminDb
+              .collection("transactions")
+              .where("senderId", "==", email)
+              .where("projectId", "==", projectId)
+              .orderBy("timestamp", "desc");
+      
+          // Execute both queries for accountants
+          const [projectSnapshot, senderSnapshotAcc] = await Promise.all([
+              accountantProjectQuery.get(),
+              accountantSenderQuery.get(),
+          ]);
+      
+          // Combine the results
+          transactions = [
+              ...projectSnapshot.docs.map((doc) => ({
+                  id: doc.id,
+                  ...doc.data(),
+              })),
+              ...senderSnapshotAcc.docs.map((doc) => ({
+                  id: doc.id,
+                  ...doc.data(),
+              })),
+          ];
+          break;
 
       case "SuperAdmin":
         // Fetch all data (no filtering)
