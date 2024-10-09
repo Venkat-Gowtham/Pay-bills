@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { submitTransaction, getTableData, getTokensById, downloadExcel , BankDetails} from '../controllers/transactionController.js';
+import { submitTransaction, getTableData, getTokensById, downloadExcel , BankDetails} from '../controllers/transactioncontroller.js';
 import { authenticateJWT } from '../../layer.js';
 
 const router = express.Router();
