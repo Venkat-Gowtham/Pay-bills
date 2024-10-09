@@ -19,6 +19,7 @@ import Loader from "../../loader/loader.js";
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
 function PaymentDetailForm() {
+  const [otherRemarks, setOtherRemarks] = useState("");
   const { userData, notify } = useContext(DataContext);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(null);
@@ -52,10 +53,20 @@ function PaymentDetailForm() {
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
+
+    if (name === "details" && value === "Other (Entry manually)") {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        details: value,
+      }));
+    } else if (name === "otherRemarks") {
+      setOtherRemarks(value);
+    } else {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        [name]: value,
+      }));
+    }
   };
 
   const handleFileChange = (event) => {
@@ -78,7 +89,7 @@ function PaymentDetailForm() {
 
     try {
       const response = await fetch(
-        `${IMAGE_UPLOAD}`,
+      `${IMAGE_UPLOAD}`,
         {
           method: "POST",
           body: formData,
@@ -107,7 +118,8 @@ function PaymentDetailForm() {
       details,
       PaymentMethods,
     } = formData;
-
+    const finalDetails =
+      formData.details === "Other (Entry manually)" ? otherRemarks : details;
     if (
       (ponumber || accountNumber || ifsc) &&
       (!ponumber || !accountNumber || !ifsc)
@@ -117,12 +129,6 @@ function PaymentDetailForm() {
       );
       return;
     }
-
-    notify({
-      project: projectId,
-      amount: amount,
-      details: details,
-    });
 
     if (
       selectedFiles.length > 0 &&
@@ -141,7 +147,7 @@ function PaymentDetailForm() {
         if (validImageUrls.length > 0) {
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
-          submissionData.append("details", details);
+          submissionData.append("details", finalDetails);
           submissionData.append("imageUrls", JSON.stringify(validImageUrls));
           submissionData.append("senderId", userData.email);
           submissionData.append("receiverId", userData.mappedAdminId);
@@ -180,6 +186,12 @@ function PaymentDetailForm() {
               PaymentMethods: "Material and PO Payments",
             });
           }
+          setOtherRemarks("");
+          notify({
+            project: projectId,
+            amount: amount,
+            details: details,
+          });
         } else {
           alert("Image upload failed. Please try again.");
         }
@@ -293,9 +305,10 @@ function PaymentDetailForm() {
                 <TextField
                   label="Enter Remark"
                   name="otherRemarks"
-                  value={formData.otherRemarks || ""}
+                  value={otherRemarks}
                   onChange={handleInputChange}
                   fullWidth
+                  required
                 />
               </Grid>
             )}

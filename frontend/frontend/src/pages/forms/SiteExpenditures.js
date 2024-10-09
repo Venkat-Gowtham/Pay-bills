@@ -14,13 +14,11 @@ import {
 import axios from "axios";
 import { DataContext } from "../../context/dataprovider";
 import Loader from "../../loader/loader.js";
-const AUTH_API = process.env.REACT_APP_AUTH_API;
-const AUTH_USER = process.env.REACT_APP_AUTH_USER;
-const NOTIFY_USER = process.env.REACT_APP_NOTIFY_USER;
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
-const UPDATE_STATUS = process.env.REACT_APP_UPDATE_STATUS;
 function PaymentRequest() {
+  const [otherRemarks, setOtherRemarks] = useState("");
+
   const [loading, setLoading] = useState(null);
   const { userData, notify } = useContext(DataContext);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -51,10 +49,20 @@ function PaymentRequest() {
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
+
+    if (name === "details" && value === "Other (Entry manually)") {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        details: value,
+      }));
+    } else if (name === "otherRemarks") {
+      setOtherRemarks(value);
+    } else {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        [name]: value,
+      }));
+    }
   };
 
   const handleFileChange = (event) => {
@@ -106,6 +114,10 @@ function PaymentRequest() {
       details,
     } = formData;
 
+    // Use otherRemarks as details if "Other" is selected
+    const finalDetails =
+      formData.details === "Other (Entry manually)" ? otherRemarks : details;
+
     if (
       (ponumber || accountNumber || ifsc) &&
       (!ponumber || !accountNumber || !ifsc)
@@ -116,7 +128,7 @@ function PaymentRequest() {
       return;
     }
 
-    if (selectedFiles.length > 0 && details && amount) {
+    if (selectedFiles.length > 0 && finalDetails && amount) {
       try {
         setLoading(true);
         const imageUrls = await Promise.all(
@@ -127,7 +139,7 @@ function PaymentRequest() {
         if (validImageUrls.length > 0) {
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
-          submissionData.append("details", details);
+          submissionData.append("details", finalDetails); // Use finalDetails here
           submissionData.append("imageUrls", JSON.stringify(validImageUrls));
           submissionData.append("senderId", userData.email);
           submissionData.append("receiverId", userData.mappedAdminId);
@@ -155,7 +167,7 @@ function PaymentRequest() {
             notify(userData.mappedAdminId, {
               project: projectId,
               amount: amount,
-              details: details,
+              details: finalDetails,
             });
             setSelectedFiles([]);
             setFormData({
@@ -168,8 +180,14 @@ function PaymentRequest() {
               PaymentMethods: "Site Expenditure",
               ifsc: "",
             });
+            setOtherRemarks(""); // Clear the otherRemarks field
             alert("Form submitted successfully");
           }
+          notify({
+            project: projectId,
+            amount: amount,
+            details: details,
+          });
         } else {
           alert("Image upload failed. Please try again.");
         }
@@ -283,9 +301,10 @@ function PaymentRequest() {
                 <TextField
                   label="Enter Remark"
                   name="otherRemarks"
-                  value={formData.otherRemarks || ""}
+                  value={otherRemarks}
                   onChange={handleInputChange}
                   fullWidth
+                  required
                 />
               </Grid>
             )}
