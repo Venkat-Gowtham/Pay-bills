@@ -1,7 +1,9 @@
-const NodeCache = require("node-cache");
-const jwt = require("jsonwebtoken");
-const { adminDb } = require("./src/config/firebaseConfig");
-require("dotenv").config();
+import NodeCache from "node-cache";
+import jwt from "jsonwebtoken";
+import { adminDb } from "./src/config/firebaseConfig.js"; // Ensure you include .js for ES modules
+import dotenv from "dotenv";
+
+dotenv.config(); // Load environment variables from .env file
 
 // Create NodeCache instance
 const cache = new NodeCache({ stdTTL: 3600 }); // Cache expiration time set to 1 hour
@@ -23,11 +25,11 @@ const authenticateJWT = async (req, res, next) => {
 
         // Check NodeCache for cached user data
         const cachedUserData = cache.get(cacheKey);
-        console.log(`cachedUserData ${cachedUserData}`);
+        console.log(`cachedUserData: ${cachedUserData}`);
 
         if (cachedUserData) {
           // If user data is found in cache, use it
-          console.log(`Layer Chache check`);
+          console.log(`Layer Cache check`);
 
           req.user = {
             role: cachedUserData.role,
@@ -36,7 +38,7 @@ const authenticateJWT = async (req, res, next) => {
           return next();
         } else {
           // If user data not found in cache, fetch from database
-          console.log(`Layer DataBase Check`);
+          console.log(`Layer Database Check`);
 
           const userSnapshot = await adminDb
             .collection("users")
@@ -44,18 +46,14 @@ const authenticateJWT = async (req, res, next) => {
             .get();
 
           if (userSnapshot.empty) {
-            return res
-              .status(404)
-              .json({ message: "from layer User not found" });
+            return res.status(404).json({ message: "from layer User not found" });
           }
 
           const userData = userSnapshot.docs[0].data();
 
           // Compare role from token and backend, reject if mismatch
           if (userData.role !== decodedToken.role) {
-            return res
-              .status(403)
-              .json({ message: "from layer Role mismatch detected" });
+            return res.status(403).json({ message: "from layer Role mismatch detected" });
           }
 
           // Cache the user data for future requests
@@ -81,4 +79,4 @@ const authenticateJWT = async (req, res, next) => {
   }
 };
 
-module.exports = { authenticateJWT };
+export { authenticateJWT };
