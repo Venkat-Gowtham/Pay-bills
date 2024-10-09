@@ -7,7 +7,7 @@
 // module.exports = router;
 
 import express from 'express';
-import { login } from '../controllers/authController.js';
+import { login } from '../controllers/authcontroller.js';
 
 const router = express.Router();
 
