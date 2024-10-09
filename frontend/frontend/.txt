@@ -1,0 +1,449 @@
+
+    amount: "",
+    details:"" ,
+    editedtime: "",
+    id: "" ,
+    projectId: "",
+    receiverId: "",
+    rejectedcause:  "" ,
+    senderId: "" ,
+    senderName: "",
+    status: "",
+    timestamp: "" ,
+    urilinks: [],
+    AccountantUri: [],
+    BankId:"" ,
+    development:"" ,
+    Recipts: [],
+    AccountantId:"" ,
+    permitteby: {id:"",name:""} | null,
+    PaymentMethods :  "",
+
+
+
+I need buttons according to this
+
+if status=="Suspended"
+No Buttons
+
+if status == "Submitted" and role=="Admin"
+Buttons Accept , Decline
+
+if status=="Approved" and role =="Accountant"
+Buttons Upload to bank , Decline
+ 
+if status=="Uploaded to Bank"   and   role == "Accountant"
+Buttons Payment Done
+
+if status =="Bills Quality Hold" and role=="Accountant"
+Buttons Accept , Decline
+
+if status=="Bill Quality failed"
+Buttons should be Upload Receipts
+
+if status=="Payment done,Awaiting for Bills" 
+buttons should be Upload Receipts
+
+
+
+
+
+
+
+
+
+if  status ==="Payment done,Awaiting for Bills" than update status to "Bills Quality Hold" and Recipts=data.Recipts
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useContext } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+  Box,
+  IconButton,
+  Divider,
+  Button,
+  useMediaQuery,
+  useTheme,
+  Chip,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import styles from "./popupcard.module.css";
+import { DataContext } from "../../context/dataprovider"; // Import DataContext
+import axios from "axios";
+
+const PopupCard = ({ open, onClose, data, userData }) => {
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const { statusColors, statusDef, role } = useContext(DataContext);
+
+  const theme = useTheme();
+  const fullScreen = useMediaQuery(theme.breakpoints.down("sm"));
+
+  if (!data) return null;
+
+  const {
+    amount,
+    details,
+    projectId,
+    status,
+    timestamp,
+    urilinks,
+    AccountantUri,
+    Recipts,
+    permitteby,
+  } = data;
+
+  const uploadedDateTime = new Date(timestamp).toLocaleString();
+
+  const handleImageClick = (url) => {
+    setSelectedImage(url);
+  };
+
+  const handleCloseImageModal = () => {
+    setSelectedImage(null);
+  };
+
+  // Function to get status styles
+  const getStatusStyles = (currentStatus) => {
+    switch (currentStatus) {
+      case statusDef.initial:
+        return { backgroundColor: statusColors.initial };
+      case statusDef.phase1:
+        return { backgroundColor: statusColors.phase1 };
+      case statusDef.phase2:
+        return { backgroundColor: statusColors.phase2 };
+      case statusDef.phase3:
+        return { backgroundColor: statusColors.phase3 };
+      case statusDef.phase4:
+        return { backgroundColor: statusColors.phase4 };
+      case statusDef.final:
+        return { backgroundColor: statusColors.final };
+      default:
+        return { backgroundColor: "#D32F2F" }; // Default color for unknown statuses
+    }
+  };
+
+  const handleStatus = async (action, additionalData = {}) => {
+    const token = localStorage.getItem("token");
+    const response = await axios.post(
+      `http://localhost:8080/api/updatestatus/statusControll`,
+      {
+        id: data.id,
+        action,
+        data: additionalData,
+        currentStatus: data.status,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    console.log(response.data);
+  };
+
+  // Render buttons with onClick event
+  const renderButtons = () => {
+    if (status === statusDef.Suspend) {
+      return null;
+    }
+    if (
+      (status === statusDef.initial && userData.email === data.receiverId) ||
+      userData.role === role.roles_4
+    ) {
+      return (
+        <>
+          <Button
+            onClick={() =>
+              handleStatus(true, {
+                permitteby: { id: userData.email, name: userData.name },
+              })
+            }
+            variant="contained"
+            style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+          >
+            Accept
+          </Button>
+          <Button
+            onClick={() =>
+              handleStatus(false, {
+                permitteby: { id: userData.email, name: userData.name },
+                rejectedcause,
+              })
+            }
+            variant="contained"
+            style={{ backgroundColor: "#F44336", color: "#FFFFFF" }}
+          >
+            Decline
+          </Button>
+        </>
+      );
+    }
+    if (status === statusDef.phase1 && data.AccountantId === userData.email) {
+      return (
+        <>
+          <Button
+            onClick={() => alert("Accountant uploading to bank")}
+            variant="contained"
+            style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+          >
+            Upload to Bank
+          </Button>
+          <Button
+            onClick={() => alert("Accountant declined the transaction")}
+            variant="contained"
+            style={{ backgroundColor: "#F44336", color: "#FFFFFF" }}
+          >
+            Decline
+          </Button>
+        </>
+      );
+    }
+    if (status === statusDef.phase2 && data.AccountantId === userData.email) {
+      return (
+        <Button
+          onClick={() => alert("Accountant marked payment as done")}
+          variant="contained"
+          style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+        >
+          Payment Done
+        </Button>
+      );
+    }
+    if (
+      (status === statusDef.phase3 || status === statusDef.qualityfail) &&
+      data.senderId === userData.email
+    ) {
+      return (
+        <Button
+          onClick={() => alert("Sender uploaded receipts")}
+          variant="contained"
+          style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+        >
+          Upload Receipts
+        </Button>
+      );
+    }
+    if (status === statusDef.phase4 && data.AccountantId === userData.email) {
+      return (
+        <>
+          <Button
+            onClick={() => alert("Accountant accepted the transaction")}
+            variant="contained"
+            style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+          >
+            Accept
+          </Button>
+          <Button
+            onClick={() => alert("Accountant declined the transaction")}
+            variant="contained"
+            style={{ backgroundColor: "#F44336", color: "#FFFFFF" }}
+          >
+            Decline
+          </Button>
+        </>
+      );
+    }
+    if (status === statusDef.qualityfail && data.senderId === userData.email) {
+      return (
+        <Button
+          onClick={() => alert("Sender updated the receipts")}
+          variant="contained"
+          style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+        >
+          Update Receipts
+        </Button>
+      );
+    }
+    if (
+      status === statusDef.qualityfail &&
+      data.AccountantId === userData.email
+    ) {
+      return (
+        <Button
+          onClick={() => alert("Accountant suspended the transaction")}
+          variant="contained"
+          style={{ backgroundColor: "#4CAF50", color: "#FFFFFF" }}
+        >
+          Suspend
+        </Button>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        fullWidth
+        maxWidth="md"
+        fullScreen={fullScreen}
+        classes={{ paper: styles.dialogPaper }}
+      >
+        <DialogTitle>
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography variant="h6">
+              <strong>Project ID: {projectId}</strong>
+            </Typography>
+            <IconButton onClick={onClose}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <Divider />
+        <DialogContent>
+          <Box display="flex" justifyContent="space-between">
+            {/* Left Side: Amount, Details, Status */}
+            <Box>
+              <Typography>
+                <strong>Amount:</strong> {amount}
+              </Typography>
+              <Typography>
+                <strong>Details:</strong> {details}
+              </Typography>
+              <Typography>
+                <strong>Status:</strong>
+                <Chip
+                  label={status}
+                  style={getStatusStyles(status)} // Apply status color
+                />
+              </Typography>
+            </Box>
+
+            {/* Right Side: Uploaded DateTime, Rejected Cause, Permitted By */}
+            <Box>
+              <Typography>
+                <strong>Uploaded DateTime:</strong> {uploadedDateTime}
+              </Typography>
+              {permitteby?.id && permitteby?.name && (
+                <Typography>
+                  <strong>Permitted By:</strong> {permitteby.name} (ID:{" "}
+                  {permitteby.id})
+                </Typography>
+              )}
+            </Box>
+          </Box>
+
+          {/* Image Thumbnails Section */}
+          <Box>
+            <Typography variant="h6">Attachments:</Typography>
+            <Box display="flex" flexWrap="wrap">
+              {urilinks.map((url, index) => (
+                <img
+                  key={index}
+                  src={url}
+                  alt={`Attachment ${index + 1}`}
+                  onClick={() => handleImageClick(url)}
+                  style={{
+                    width: "100px",
+                    height: "100px",
+                    objectFit: "cover",
+                    cursor: "pointer",
+                    marginRight: "10px",
+                    marginBottom: "10px",
+                  }}
+                />
+              ))}
+            </Box>
+
+            {/* Accountant Attachments Section */}
+            {AccountantUri && AccountantUri.length > 0 && (
+              <>
+                <Typography variant="h6">Accountant Attachments:</Typography>
+                <Box display="flex" flexWrap="wrap">
+                  {AccountantUri.map((url, index) => (
+                    <img
+                      key={index}
+                      src={url}
+                      alt={`Accountant Attachment ${index + 1}`}
+                      onClick={() => handleImageClick(url)}
+                      style={{
+                        width: "100px",
+                        height: "100px",
+                        objectFit: "cover",
+                        cursor: "pointer",
+                        marginRight: "10px",
+                        marginBottom: "10px",
+                      }}
+                    />
+                  ))}
+                </Box>
+              </>
+            )}
+
+            {/* Receipts Section */}
+            {Recipts && Recipts.length > 0 && (
+              <>
+                <Typography variant="h6">Receipts:</Typography>
+                <Box display="flex" flexWrap="wrap">
+                  {Recipts.map((url, index) => (
+                    <img
+                      key={index}
+                      src={url}
+                      alt={`Receipt ${index + 1}`}
+                      onClick={() => handleImageClick(url)}
+                      style={{
+                        width: "100px",
+                        height: "100px",
+                        objectFit: "cover",
+                        cursor: "pointer",
+                        marginRight: "10px",
+                        marginBottom: "10px",
+                      }}
+                    />
+                  ))}
+                </Box>
+              </>
+            )}
+          </Box>
+        </DialogContent>
+        <Divider />
+        <DialogActions>{renderButtons()}</DialogActions>
+      </Dialog>
+
+      {/* Image Modal */}
+      {selectedImage && (
+        <Dialog open={!!selectedImage} onClose={handleCloseImageModal}>
+          <DialogContent>
+            <img
+              src={selectedImage}
+              alt="Selected"
+              style={{ width: "100%", height: "auto" }}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseImageModal} color="primary">
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+    </>
+  );
+};
+
+export default PopupCard;
