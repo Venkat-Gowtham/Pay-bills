@@ -725,3 +725,132 @@ export const BankDetails = async (req, res) => {
       .json({ message: "Failed to fetch bank data", error: error.message });
   }
 };
+
+export const DevelopmentDetails = async (req, res) => {
+  const id = req.params.id;
+  console.log(id);
+  try {
+      const devDoc = await adminDb.collection('developmentData').doc(id).get();
+      if (!devDoc.exists) {
+          return res.status(404).json({ message: 'Development data not found' });
+      }
+
+      const devData = devDoc.data();
+      res.status(200).json(devData);
+  } catch (error) {
+      res.status(500).json({ message: 'Failed to fetch development data', error: error.message });
+  }
+}
+
+
+export const updateTransaction = async (req, res) => {
+  console.log("lets see")
+  const id = req.params.id;
+  console.log(id);
+  console.log(req.body);
+
+  const {
+      projectId, details, imageUrls, senderId, receiverId, senderName,
+      amount, accountNumber, ifsc, ponumber, vendorname, PaymentMethods, payfor,
+      status, rejectedcause, permitteby , Receipts
+  } = req.body;
+  console.log("imageurls", imageUrls);
+  let parsedImageUrls =
+  typeof imageUrls === "string" ? JSON.parse(imageUrls) : imageUrls;
+  console.log("parsedImageUrls :" , parsedImageUrls);
+  if (!id) {
+      return res.status(400).json({ message: 'Transaction ID is required' });
+  }
+
+  try {
+      const transactionRef = adminDb.collection('transactions').doc(id);
+      const transactionDoc = await transactionRef.get();
+
+      if (!transactionDoc.exists) {
+          return res.status(404).json({ message: 'Transaction not found' });
+      }
+
+      const transactionData = transactionDoc.data();
+      let BankId = transactionData.BankId || "";   // Fetch existing BankId
+      let developmentId = transactionData.development || "";  // Fetch existing developmentId
+
+      // Check if bank details exist, else create new bank details document
+      // Check if bank details exist, else create new bank details document
+      if (BankId) {
+          const bankRef = adminDb.collection('BankDetails').doc(BankId);
+          const bankDoc = await bankRef.get(); // Fetch the bank document
+          if (bankDoc.exists) {
+              // Update existing bank details
+              const bankUpdateData = {
+                  ...(ifsc && { ifsc }),
+                  ...(ponumber && { ponumber }),
+                  ...(vendorname && { vendorname }),
+                  ...(accountNumber && { accountNumber }),
+                  timestamp: Timestamp.now(),
+              };
+              await bankRef.update(bankUpdateData);
+          } else {
+              // Handle case where the BankId is invalid or the document doesn't exist
+              console.log(`No document found for BankId: ${BankId}`);
+              return res.status(404).json({ message: `No document found for BankId: ${BankId}` });
+          }
+      } else if (accountNumber && ifsc && ponumber && vendorname) {
+          // Create new bank details if BankId does not exist
+          const bankData = {
+              ifsc,
+              ponumber,
+              vendorname,
+              accountNumber,
+              timestamp: Timestamp.now(),
+          };
+          const bankDocRef = await adminDb.collection('BankDetails').add(bankData);
+          BankId = bankDocRef.id;  // Get the new BankId
+      }
+
+
+      // Check if development data exists, else create new development document
+      if (developmentId) {
+          // Update existing development data
+          const devRef = adminDb.collection('developmentData').doc(developmentId);
+          const devUpdateData = {
+              ...(payfor && { payfor }),
+              timestamp: Timestamp.now(),
+          };
+          await devRef.update(devUpdateData);
+      } else if (payfor) {
+          // Create new development data if developmentId does not exist
+          const devData = {
+              payfor,
+              timestamp: Timestamp.now(),
+          };
+          const devDocRef = await adminDb.collection('developmentData').add(devData);
+          developmentId = devDocRef.id;  // Get the new developmentId
+      }
+
+      // Prepare transaction update data, including BankId and developmentId
+      const updateData = {
+          ...(projectId && { projectId }),
+          ...(details && { details }),
+          ...(parsedImageUrls && { urilinks: parsedImageUrls }),
+          ...(senderId && { senderId }),
+          ...(receiverId && { receiverId }),
+          ...(senderName && { senderName }),
+          ...(amount && { amount }),
+          ...(PaymentMethods && { PaymentMethods }),
+          ...(status && { status }),
+          ...(rejectedcause && { rejectedcause }),
+          ...(permitteby && { permitteby }),
+          ...(Receipts && { Receipts }),
+          BankId: BankId || transactionData.BankId,
+          development: developmentId || transactionData.development,
+          editedtime: Timestamp.now(),
+      };
+
+      // Update the transaction with the new data
+      await transactionRef.update(updateData);
+
+      res.status(200).json({ message: 'Transaction and associated data updated successfully', data: updateData });
+  } catch (error) {
+      res.status(500).json({ message: 'Failed to update transaction', error: error.message });
+  }
+};
