@@ -14,7 +14,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const  IMAGE_URL = process.env.REACT_APP_IMAGE_URL;
+  const  IMAGE_URL = process.env.REACT_APP_MAIN_API;
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
