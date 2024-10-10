@@ -39,7 +39,7 @@
 .logo {
   width: 180px;
   height: 180px;
-  background-image: url("http://localhost:8080/images/companylogo.jpg");
+  background-image: url("http://3.110.186.200:8080/images/companylogo.jpg");
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
@@ -104,7 +104,7 @@
 .mobileLogo {
   width: 140px; /* Adjusted size */
   height: 140px; /* Adjusted size */
-  background-image: url("http://localhost:8080/images/companylogo.jpg");
+  background-image: url("http://3.110.186.200:8080/images/companylogo.jpg");
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;
