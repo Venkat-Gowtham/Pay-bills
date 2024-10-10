@@ -439,13 +439,19 @@ function Home() {
                       </IconButton>
                       <IconButton
                         color="secondary"
-                        onClick={() =>row.status==="Submitted"?handleOpenModal(row) :alert("Can't Edit this row")}
-                          style={{ color: row.status === "Submitted" ? "red" : "grey" }}
-
+                        onClick={() => {
+                          if (row.status === "Submitted" && row.senderId === clientId) {
+                            handleOpenModal(row);
+                          } else {
+                            alert("You can't edit this row");
+                          }
+                        }}
+                        style={{ color: row.status === "Submitted" && row.senderId === clientId ? "red" : "grey" }}
                       >
                         <EditIcon />
                       </IconButton>
                     </TableCell>
+
                   </TableRow>
                 ))}
               </TableBody>

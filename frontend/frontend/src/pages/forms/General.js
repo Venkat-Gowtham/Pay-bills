@@ -52,6 +52,7 @@ function General({ initialFormData, handleClose, handleUpdateRow }) {
     id: "",
     payfor: "",
   });
+  const [reasons,setReasons] = useState(["General Reason", "Other (Entry manually)"]);
   useEffect(() => {
     if (initialFormData) {
       console.log("initialFormData", initialFormData);
@@ -60,10 +61,16 @@ function General({ initialFormData, handleClose, handleUpdateRow }) {
        setImagePreviews(existingUrls);
        setSelectedFiles([]); // Clear selected files when loading new form data
        setRemovedUrls([]); // Ensure no URLs are marked as removed when loading new data
+       if (initialFormData.details) {
+        setReasons((prevReasons) => {
+          // Create a new array with unique reasons
+          const updatedReasons = [...new Set([...prevReasons, initialFormData.details])];
+          return updatedReasons; // Set the updated unique reasons
+        });
+      }
     }
   }, [initialFormData]);
   const payforOptions = ["Rent", "Business and Development"];
-  const reasons = ["General Reason", "Other (Entry manually)"];
   const projects = ["P23", "P27"];
 
   const handleInputChange = (event) => {
@@ -85,10 +92,16 @@ function General({ initialFormData, handleClose, handleUpdateRow }) {
   };
 
   const handleFileChange = (event) => {
-    const newFiles = Array.from(event.target.files);
+    const newFiles = Array.from(event.target.files); // Convert the FileList to an array
     const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
-    setSelectedFiles((prev) => [...prev, ...newFiles]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    const updatedSelectedFiles = [...selectedFiles];
+    newFiles.forEach((file) => {
+        if (!updatedSelectedFiles.some(selectedFile => selectedFile.name === file.name)) {
+            updatedSelectedFiles.push(file); // Add new file if it doesn't already exist
+        }
+    });
+    setSelectedFiles(updatedSelectedFiles); // Update selected files state
+    setImagePreviews((prev) => [...prev, ...newPreviews]); 
   };
 
   const uploadImage = async (image) => {
@@ -131,14 +144,11 @@ function General({ initialFormData, handleClose, handleUpdateRow }) {
 
   const handleRemoveImage = (url) => {
     if (initialFormData.urilinks.includes(url)) {
-      setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
+        setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
     }
     setImagePreviews((prev) => prev.filter((img) => img !== url));
-    const index = imagePreviews.indexOf(url);
-    if (index !== -1) {
-      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    }
-  };
+    setSelectedFiles((prev) => prev.filter((file) => URL.createObjectURL(file) !== url));
+};
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -182,7 +192,7 @@ function General({ initialFormData, handleClose, handleUpdateRow }) {
               finalImageUrls = [...new Set([...validImageUrls, ...filteredExistingUrls])];
             }
           }
-
+          console.log("finalImageUrls", finalImageUrls);
           // Prepare submission data
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
@@ -251,6 +261,7 @@ function General({ initialFormData, handleClose, handleUpdateRow }) {
             // Reset state after successful submission
             setSelectedFiles([]);
             setImagePreviews([]);
+            setRemovedUrls([]);
             setFormData({
               amount: "",
               details: "",

@@ -51,18 +51,24 @@ function PaymentRequest({ initialFormData, handleClose, handleUpdateRow }) {
     ifsc: "",
     id: "",
   });
+  const [reasons,setReasons] = useState(["Testing Reason", "Other (Entry manually)"]);
   useEffect(() => {
     if (initialFormData) {
       console.log("initialFormData", initialFormData);
       setFormData(initialFormData);
-      const existingUrls = Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : [];
-      setImagePreviews(existingUrls);
-      setSelectedFiles([]); // Clear selected files when loading new form data
-      setRemovedUrls([]); // Ensure no URLs are marked as removed when loading new data
+       const existingUrls = Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : [];
+       setImagePreviews(existingUrls);
+       setSelectedFiles([]); // Clear selected files when loading new form data
+       setRemovedUrls([]); // Ensure no URLs are marked as removed when loading new data
+       if (initialFormData.details) {
+        setReasons((prevReasons) => {
+          // Create a new array with unique reasons
+          const updatedReasons = [...new Set([...prevReasons, initialFormData.details])];
+          return updatedReasons; // Set the updated unique reasons
+        });
+      }
     }
   }, [initialFormData]);
-
-  const reasons = ["Testing Reason", "Other (Entry manually)"];
   const projects = ["P23", "P27"];
 
   const handleInputChange = (event) => {
@@ -84,10 +90,16 @@ function PaymentRequest({ initialFormData, handleClose, handleUpdateRow }) {
   };
 
   const handleFileChange = (event) => {
-    const newFiles = Array.from(event.target.files);
+    const newFiles = Array.from(event.target.files); // Convert the FileList to an array
     const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
-    setSelectedFiles((prev) => [...prev, ...newFiles]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
+    const updatedSelectedFiles = [...selectedFiles];
+    newFiles.forEach((file) => {
+        if (!updatedSelectedFiles.some(selectedFile => selectedFile.name === file.name)) {
+            updatedSelectedFiles.push(file); // Add new file if it doesn't already exist
+        }
+    });
+    setSelectedFiles(updatedSelectedFiles); // Update selected files state
+    setImagePreviews((prev) => [...prev, ...newPreviews]); 
   };
 
   const uploadImage = async (image) => {
@@ -130,14 +142,12 @@ function PaymentRequest({ initialFormData, handleClose, handleUpdateRow }) {
   };
   const handleRemoveImage = (url) => {
     if (initialFormData.urilinks.includes(url)) {
-      setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
+        setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
     }
     setImagePreviews((prev) => prev.filter((img) => img !== url));
-    const index = imagePreviews.indexOf(url);
-    if (index !== -1) {
-      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    }
-  };
+    setSelectedFiles((prev) => prev.filter((file) => URL.createObjectURL(file) !== url));
+};
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const {
@@ -193,7 +203,7 @@ function PaymentRequest({ initialFormData, handleClose, handleUpdateRow }) {
           // Prepare submission data
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
-          submissionData.append("details", details);
+          submissionData.append("details", finalDetails);
           submissionData.append("imageUrls", JSON.stringify(finalImageUrls));
           submissionData.append("senderId", userData.email);
           submissionData.append("receiverId", userData.mappedAdminId );
@@ -257,6 +267,7 @@ function PaymentRequest({ initialFormData, handleClose, handleUpdateRow }) {
             // Reset state after successful submission
             setSelectedFiles([]);
             setImagePreviews([]);
+            setRemovedUrls([]);
             setFormData({
               amount: "",
               details: "",

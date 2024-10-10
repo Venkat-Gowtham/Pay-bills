@@ -25,6 +25,7 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
   const [otherRemarks, setOtherRemarks] = useState("");
   const { userData, notify } = useContext(DataContext);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [removedUrls, setRemovedUrls] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(null);
   const [formState, setFormData] = useState({
@@ -51,18 +52,27 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
     ifsc: "",
     id: "",
   });
+  const [reasons,setReasons] = useState([
+    "Material schedule No/Service Reason",
+    "Other (Entry manually)",
+  ]);
   useEffect(() => {
     if (initialFormData) {
       console.log("initialFormData", initialFormData);
       setFormData(initialFormData);
-      setImagePreviews(Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : []);
-      setSelectedFiles([]); // Clear selected files when loading new form data
+       const existingUrls = Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : [];
+       setImagePreviews(existingUrls);
+       setSelectedFiles([]); // Clear selected files when loading new form data
+       setRemovedUrls([]); // Ensure no URLs are marked as removed when loading new data
+       if (initialFormData.details) {
+        setReasons((prevReasons) => {
+          // Create a new array with unique reasons
+          const updatedReasons = [...new Set([...prevReasons, initialFormData.details])];
+          return updatedReasons; // Set the updated unique reasons
+        });
+      }
     }
   }, [initialFormData]);
-  const reasons = [
-    "Material schedule No/Service Reason",
-    "Other (Entry manually)",
-  ];
   const projects = ["P23", "P27"];
 
   const handleInputChange = (event) => {
@@ -84,43 +94,44 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
   };
 
   const handleFileChange = (event) => {
-    const files = Array.from(event.target.files);
-    setSelectedFiles((prevFiles) => [
-      ...prevFiles,
-      ...files.filter(
-        (file) => !prevFiles.some((prevFile) => prevFile.name === file.name)
-      ),
-    ]);
-    setImagePreviews((prevPreviews) => [
-      ...prevPreviews,
-      ...files.map((file) => URL.createObjectURL(file)),
-    ]);
+    const newFiles = Array.from(event.target.files); // Convert the FileList to an array
+    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    const updatedSelectedFiles = [...selectedFiles];
+    newFiles.forEach((file) => {
+        if (!updatedSelectedFiles.some(selectedFile => selectedFile.name === file.name)) {
+            updatedSelectedFiles.push(file); // Add new file if it doesn't already exist
+        }
+    });
+    setSelectedFiles(updatedSelectedFiles); // Update selected files state
+    setImagePreviews((prev) => [...prev, ...newPreviews]); 
   };
 
   const uploadImage = async (image) => {
     const formData = new FormData();
     const mail = userData.email;
-
     formData.append("file", image);
     formData.append("public_id", `Data/${mail}/upload_${Date.now()}`);
     formData.append("upload_preset", "Default");
 
     try {
       const response = await fetch(
-      `${IMAGE_UPLOAD}`,
+        `${IMAGE_UPLOAD}`,
         {
           method: "POST",
           body: formData,
         }
       );
+
       if (!response.ok) {
-        throw new Error(`Failed to upload image: ${response.statusText}`);
+        const errorMessage = await response.text(); // Get error message from response body
+        throw new Error(`Failed to upload image: ${response.status} ${response.statusText} - ${errorMessage}`);
       }
       const result = await response.json();
-      return result.secure_url;
+      alert("Uploaded Image successfully");
+      return result.secure_url; // Return the secure URL of the uploaded image
     } catch (error) {
-      console.error("Upload failed:", error);
-      return null;
+      alert(`Upload failed: ${error.message}`); // Alert user of the error
+      return null; // Return null in case of failure
     }
   };
 
@@ -133,15 +144,13 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
     return object;
   };
 
-  const handleRemoveImage = (index) => {
-    const newImagePreviews = [...imagePreviews];
-    newImagePreviews.splice(index, 1);
-    setImagePreviews(newImagePreviews);
-
-    const newFiles = [...selectedFiles];
-    newFiles.splice(index, 1);
-    setSelectedFiles(newFiles);
-  };
+  const handleRemoveImage = (url) => {
+    if (initialFormData.urilinks.includes(url)) {
+        setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
+    }
+    setImagePreviews((prev) => prev.filter((img) => img !== url));
+    setSelectedFiles((prev) => prev.filter((file) => URL.createObjectURL(file) !== url));
+};
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -171,28 +180,36 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
       );
       return;
     }
+    if (!amount || !finalDetails) {
+      alert("Please complete all fields: Amount and Remarks");
+      return;
+    }
+    let validImageUrls = [];
 
-    if (
-      selectedFiles.length > 0 &&
-      details &&
-      amount &&
-      projectId &&
-      vendorname
-    ) {
-      try {
-        setLoading(true);
-        const imageUrls = await Promise.all(
-          selectedFiles.map((file) => uploadImage(file))
-        );
-        const validImageUrls = imageUrls.filter((url) => url !== null);
+      if (selectedFiles.length > 0 || imagePreviews.length > 0) { // Check for new or existing images
+        try {
+          setLoading(true);
+          const existingUrls = Array.isArray(formState.urilinks) ? formState.urilinks : [];
+          const filteredExistingUrls = existingUrls.filter(url => !removedUrls.includes(url));
+          console.log("filteredExistingUrls", filteredExistingUrls);
+          let finalImageUrls = [];
+          if (selectedFiles.length > 0) {
+            const imageUrls = await Promise.all(
+              selectedFiles.map((file) => uploadImage(file)) // Upload actual file objects
+            );
+            validImageUrls = imageUrls.filter((url) => url !== null);
+            if (validImageUrls.length > 0) {
+              finalImageUrls = [...new Set([...validImageUrls, ...filteredExistingUrls])];
+            }
+          }
 
-        if (validImageUrls.length > 0) {
+          // Prepare submission data
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
           submissionData.append("details", finalDetails);
-          submissionData.append("imageUrls", JSON.stringify([...validImageUrls, ...(Array.isArray(formState.urilinks) ? formState.urilinks : [])]));
+          submissionData.append("imageUrls", JSON.stringify(finalImageUrls));
           submissionData.append("senderId", userData.email);
-          submissionData.append("receiverId", userData.mappedAdminId || "");
+          submissionData.append("receiverId", userData.mappedAdminId );
           submissionData.append("senderName", userData.name);
           submissionData.append("amount", amount);
           submissionData.append("ponumber", ponumber);
@@ -207,10 +224,9 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
           submissionData.append("BankId", BankId);
           submissionData.append("development", development);
           submissionData.append("timestamp", new Date().toISOString());
-
           const token = localStorage.getItem("token");
-          let response;
 
+          let response;
           if (initialFormData && initialFormData.id) {
             // Update the existing record
             response = await axios.put(
@@ -229,6 +245,7 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
             handleUpdateRow(updatedRowObject);
             alert("Form updated successfully");
           } else {
+            // Create a new record
             response = await axios.post(
               `${TRANSACTIONS_API}/submitform1`,
               submissionData,
@@ -249,8 +266,11 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
               amount: amount,
               details: finalDetails,
             });
+
+            // Reset state after successful submission
             setSelectedFiles([]);
             setImagePreviews([]);
+            setRemovedUrls([]);
             setFormData({
               amount: "",
               details: "",
@@ -278,17 +298,15 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
             setOtherRemarks(""); // Clear the otherRemarks field
             handleClose();
           }
-        } else {
-          alert("Image upload failed. Please try again.");
+        } catch (error) {
+          console.error("Error sending data:", error);
+          alert("Error sending data");
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
-      } catch (error) {
-        console.error("Error sending data:", error);
-        alert("Error sending data");
+      } else {
+        alert("Please complete all fields before submitting");
       }
-    } else {
-      alert("Please complete all fields before submitting");
-    }
   };
 
   return (
@@ -415,7 +433,7 @@ function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
                     }}
                   />
                   <IconButton
-                    onClick={() => handleRemoveImage(index)}
+                    onClick={() => handleRemoveImage(url)}
                     style={{
                       position: "absolute",
                       top: 0,
