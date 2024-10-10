@@ -1,7 +1,7 @@
 // login.js
 
 import React from "react";
-import SignIn from "./signin/signin";
+import SignIn from "./signin/signin.js";
 import { Paper } from "@mui/material";
 import styles from "./login.module.css";
 

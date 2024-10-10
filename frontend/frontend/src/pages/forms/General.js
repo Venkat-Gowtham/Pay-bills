@@ -14,7 +14,7 @@ import {
   Box,
 } from "@mui/material";
 import axios from "axios";
-import { DataContext } from "../../context/dataprovider";
+import { DataContext } from "../../context/dataprovider.js";
 import Loader from "../../loader/loader.js";
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;

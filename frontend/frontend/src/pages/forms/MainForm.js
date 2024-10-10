@@ -12,9 +12,9 @@ import {
   useTheme,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import General from "./General";
-import PaymentRequest from "./MaterialandPOPayment";
-import PaymentDetailForm from "./SiteExpenditures";
+import General from "./General.js";
+import PaymentRequest from "./MaterialandPOPayment.js";
+import PaymentDetailForm from "./SiteExpenditures.js";
 
 function MainForm({ open, handleClose }) {
   const [selectedForm, setSelectedForm] = useState("SiteExpenditure");

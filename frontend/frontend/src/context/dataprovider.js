@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
-import sendPushNotification from "../utils/sendPushNotifications";
+import sendPushNotification from "../utils/sendPushNotifications.js";
 const AUTH_API = process.env.REACT_APP_AUTH_API;
 const AUTH_USER = process.env.REACT_APP_AUTH_USER;
 const NOTIFY_USER = process.env.REACT_APP_NOTIFY_USER;

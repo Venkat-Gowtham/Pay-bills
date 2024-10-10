@@ -4,7 +4,7 @@ import SendIcon from "@mui/icons-material/Send";
 import styles from "./sign.module.css";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { DataContext } from "../../context/dataprovider"; // Import the context
+import { DataContext } from "../../context/dataprovider.js"; // Import the context
 const AUTH_API = process.env.REACT_APP_AUTH_API;
 function SignIn() {
   const navigate = useNavigate();

@@ -7,15 +7,14 @@ import { Menu, MenuItem, Box, Typography } from "@mui/material";
 import { useMediaQuery, useTheme } from "@mui/material";
 import { Link, useNavigate } from "react-router-dom";
 import styles from "./navbar.module.css";
-import { DataContext } from "../../context/dataprovider"; // Import DataContext
-
+import { DataContext } from "../../context/dataprovider.js"; // Import DataContext
 const Navbar = () => {
   const { userData } = useContext(DataContext); // Consume userData from context
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
+  const  IMAGE_URL = process.env.REACT_APP_IMAGE_URL;
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -41,7 +40,7 @@ const Navbar = () => {
           >
             <Link to="/" className={styles.link}>
               <img
-                src="http://localhost:8080/images/Logo.png"
+                src={`${IMAGE_URL}/images/Logo.png`}
                 alt="Logo"
                 className={styles.logo}
               />

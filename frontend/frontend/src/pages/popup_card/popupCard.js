@@ -19,9 +19,9 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import styles from "./popupcard.module.css";
-import { DataContext } from "../../context/dataprovider";
+import { DataContext } from "../../context/dataprovider.js";
 import axios from "axios";
-import Loader from "../../loader/loader";
+import Loader from "../../loader/loader.js";
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
 const UPDATE_STATUS = process.env.REACT_APP_UPDATE_STATUS;
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
