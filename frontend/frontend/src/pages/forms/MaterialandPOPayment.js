@@ -1,6 +1,6 @@
 // form2
 
-import React, { useState, useContext } from "react";
+import React, { useState, useContext  , useEffect} from "react";
 import {
   Button,
   TextField,
@@ -12,21 +12,27 @@ import {
   FormControl,
   InputLabel,
   Box,
+  Divider,
+  IconButton,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 import { DataContext } from "../../context/dataprovider";
 import Loader from "../../loader/loader.js";
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
-function PaymentDetailForm() {
+function PaymentDetailForm({ initialFormData, handleClose, handleUpdateRow }) {
   const [otherRemarks, setOtherRemarks] = useState("");
   const { userData, notify } = useContext(DataContext);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [loading, setLoading] = useState(null);
-  const [formData, setFormData] = useState({
+  const [formState, setFormData] = useState({
     amount: "",
     details: "",
     projectId: "",
+    BankId: "",
+    development: "",
     receiverId: "",
     rejectedcause: "",
     senderId: "",
@@ -43,8 +49,16 @@ function PaymentDetailForm() {
     ponumber: "",
     accountNumber: "",
     ifsc: "",
+    id: "",
   });
-
+  useEffect(() => {
+    if (initialFormData) {
+      console.log("initialFormData", initialFormData);
+      setFormData(initialFormData);
+      setImagePreviews(Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : []);
+      setSelectedFiles([]); // Clear selected files when loading new form data
+    }
+  }, [initialFormData]);
   const reasons = [
     "Material schedule No/Service Reason",
     "Other (Entry manually)",
@@ -77,6 +91,10 @@ function PaymentDetailForm() {
         (file) => !prevFiles.some((prevFile) => prevFile.name === file.name)
       ),
     ]);
+    setImagePreviews((prevPreviews) => [
+      ...prevPreviews,
+      ...files.map((file) => URL.createObjectURL(file)),
+    ]);
   };
 
   const uploadImage = async (image) => {
@@ -106,6 +124,25 @@ function PaymentDetailForm() {
     }
   };
 
+  const formDataToObject = (formData) => {
+    console.log("formData");
+    const object = {};
+    formData.forEach((value, key) => {
+      object[key] = value;
+    });
+    return object;
+  };
+
+  const handleRemoveImage = (index) => {
+    const newImagePreviews = [...imagePreviews];
+    newImagePreviews.splice(index, 1);
+    setImagePreviews(newImagePreviews);
+
+    const newFiles = [...selectedFiles];
+    newFiles.splice(index, 1);
+    setSelectedFiles(newFiles);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const {
@@ -115,11 +152,16 @@ function PaymentDetailForm() {
       vendorname,
       accountNumber,
       ifsc,
+      permitteby,
+      AccountantId,
+      rejectedcause,
       details,
       PaymentMethods,
-    } = formData;
+      BankId,
+      development,
+    } = formState;
     const finalDetails =
-      formData.details === "Other (Entry manually)" ? otherRemarks : details;
+    formState.details === "Other (Entry manually)" ? otherRemarks : details;
     if (
       (ponumber || accountNumber || ifsc) &&
       (!ponumber || !accountNumber || !ifsc)
@@ -148,50 +190,94 @@ function PaymentDetailForm() {
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
           submissionData.append("details", finalDetails);
-          submissionData.append("imageUrls", JSON.stringify(validImageUrls));
+          submissionData.append("imageUrls", JSON.stringify([...validImageUrls, ...(Array.isArray(formState.urilinks) ? formState.urilinks : [])]));
           submissionData.append("senderId", userData.email);
-          submissionData.append("receiverId", userData.mappedAdminId);
+          submissionData.append("receiverId", userData.mappedAdminId || "");
           submissionData.append("senderName", userData.name);
-          submissionData.append("AccountantId", userData.mappedAccountantId);
           submissionData.append("amount", amount);
           submissionData.append("ponumber", ponumber);
           submissionData.append("vendorname", vendorname);
           submissionData.append("accountNumber", accountNumber);
           submissionData.append("ifsc", ifsc);
-          submissionData.append("PaymentMethods", PaymentMethods);
+          submissionData.append("PaymentMethods", PaymentMethods || "Material and PO Payments");
+          submissionData.append("status", "Submitted");
+          submissionData.append("permitteby", permitteby || null);
+          submissionData.append("AccountantId", userData.mappedAccountantId || "");
+          submissionData.append("rejectedcause", rejectedcause);
+          submissionData.append("BankId", BankId);
+          submissionData.append("development", development);
+          submissionData.append("timestamp", new Date().toISOString());
 
           const token = localStorage.getItem("token");
+          let response;
 
-          const response = await axios.post(
-            `${TRANSACTIONS_API}/submitform1`,
-            submissionData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          if (response.status === 200) {
+          if (initialFormData && initialFormData.id) {
+            // Update the existing record
+            response = await axios.put(
+              `${TRANSACTIONS_API}/update/${initialFormData.id}`,
+              submissionData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            console.log(response.data.data);
+            const updatedRowObject = formDataToObject(submissionData);
+            updatedRowObject.id = initialFormData.id;
+            handleUpdateRow(updatedRowObject);
+            alert("Form updated successfully");
+          } else {
+            response = await axios.post(
+              `${TRANSACTIONS_API}/submitform1`,
+              submissionData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
             alert("Form submitted successfully");
+          }
+          console.log(response);
+
+          if (response.status === 200) {
+            notify(userData.mappedAdminId, {
+              project: projectId,
+              amount: amount,
+              details: finalDetails,
+            });
             setSelectedFiles([]);
+            setImagePreviews([]);
             setFormData({
-              projectId: "",
-              details: "",
               amount: "",
-              ponumber: "",
+              details: "",
+              projectId: "",
+              BankId: "",
+              development: "",
+              receiverId: "",
+              rejectedcause: "",
+              senderId: "",
+              senderName: "",
+              status: "",
+              timestamp: "",
+              urilinks: [], // Reset urilinks
+              AccountantUri: [],
+              Recipts: [],
+              AccountantId: "",
+              permitteby: null,
+              PaymentMethods: "Material and PO Payments",
               vendorname: "",
+              ponumber: "",
               accountNumber: "",
               ifsc: "",
-              PaymentMethods: "Material and PO Payments",
+              id: "",
             });
+            setOtherRemarks(""); // Clear the otherRemarks field
+            handleClose();
           }
-          setOtherRemarks("");
-          notify({
-            project: projectId,
-            amount: amount,
-            details: details,
-          });
         } else {
           alert("Image upload failed. Please try again.");
         }
@@ -218,7 +304,7 @@ function PaymentDetailForm() {
                 <InputLabel>Project</InputLabel>
                 <Select
                   name="projectId"
-                  value={formData.projectId}
+                  value={formState.projectId}
                   onChange={handleInputChange}
                   required
                 >
@@ -235,7 +321,7 @@ function PaymentDetailForm() {
               <TextField
                 label="Amount"
                 name="amount"
-                value={formData.amount}
+                value={formState.amount}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -245,7 +331,7 @@ function PaymentDetailForm() {
               <TextField
                 label="PO Number"
                 name="ponumber"
-                value={formData.ponumber}
+                value={formState.ponumber}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -255,7 +341,7 @@ function PaymentDetailForm() {
               <TextField
                 label="Vendor Name"
                 name="vendorname"
-                value={formData.vendorname}
+                value={formState.vendorname}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -265,7 +351,7 @@ function PaymentDetailForm() {
               <TextField
                 label="Account Number"
                 name="accountNumber"
-                value={formData.accountNumber}
+                value={formState.accountNumber}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -275,7 +361,7 @@ function PaymentDetailForm() {
               <TextField
                 label="IFSC Code"
                 name="ifsc"
-                value={formData.ifsc}
+                value={formState.ifsc}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -288,7 +374,7 @@ function PaymentDetailForm() {
                 <Select
                   label="Remarks"
                   name="details"
-                  value={formData.details}
+                  value={formState.details}
                   onChange={handleInputChange}
                 >
                   {reasons.map((reason, index) => (
@@ -300,7 +386,7 @@ function PaymentDetailForm() {
               </FormControl>
             </Grid>
 
-            {formData.details === "Other (Entry manually)" && (
+            {formState.details === "Other (Entry manually)" && (
               <Grid item xs={12}>
                 <TextField
                   label="Enter Remark"
@@ -312,7 +398,39 @@ function PaymentDetailForm() {
                 />
               </Grid>
             )}
-
+            <Divider />
+          {Array.isArray(imagePreviews) && imagePreviews.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="h6">Selected Files:</Typography>
+              <Box display="flex" flexWrap="wrap">
+                {Array.isArray(imagePreviews) &&  imagePreviews?.map((url, index) => (
+                  <Box  position="relative" key={index} marginRight="10px" marginBottom="10px">
+                    <img
+                    src ={url}
+                    alt={`url ${index + 1}`}
+                    style={{
+                      width: "100px",
+                      height: "100px",
+                      objectFit: "cover",
+                    }}
+                  />
+                  <IconButton
+                    onClick={() => handleRemoveImage(index)}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      color: "red",
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+          <Divider />
             <Grid item xs={12}>
               <TextField
                 label="Pick Files"
@@ -325,36 +443,8 @@ function PaymentDetailForm() {
                   shrink: true,
                 }}
               />
-              {selectedFiles.length > 0 && (
-                <Box sx={{ marginTop: "16px" }}>
-                  <Typography variant="h6">Selected Files:</Typography>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 1,
-                      marginTop: "8px",
-                    }}
-                  >
-                    {selectedFiles.map((file, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography>{file.name}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              )}
             </Grid>
-
             {loading && <Loader />}
-
             <Grid item xs={12}>
               <Button
                 type="submit"

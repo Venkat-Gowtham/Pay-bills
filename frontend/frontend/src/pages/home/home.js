@@ -47,6 +47,7 @@ function Home() {
   const [receiverIdFilter, setReceiverIdFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [editData, setEditData] = useState(null); // State to hold data for editing
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const clientId = localStorage.getItem("clientId");
   const navigate = useNavigate();
@@ -90,7 +91,79 @@ function Home() {
       console.log("Error fetching data:", error);
     }
   };
-  const handleOpenModal = () => setOpenModal(true);
+  const handleOpenModal = (rowData) => {
+    if (!rowData || rowData.nativeEvent) {
+      rowData = {};  // Set it to an empty object if it's an event
+    }
+    console.log("Row Data:", rowData);
+    // Clone the original rowData to avoid mutations
+    const token = localStorage.getItem("token");
+    let updatedRowData = { ...rowData };
+    console.log("Updated Row Data:", updatedRowData);
+    // Check if rowData has an id
+    if (rowData?.id) {
+      console.log(rowData.id);
+    }
+
+    const bankPromise = rowData?.BankId
+      ? axios.get(`${TRANSACTIONS_API}/getBankData/${rowData.BankId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+        .then(response => {
+          console.log("Bank Data Received", response.data);
+          const bankData = response.data;
+          console.log("Bank Data:", bankData);
+          // Append bank data fields to updatedRowData
+          updatedRowData = {
+            ...updatedRowData,
+            ifsc: bankData.ifsc || updatedRowData.ifsc,
+            accountNumber: bankData.accountNumber || updatedRowData.accountNumber,
+            ponumber: bankData.ponumber || updatedRowData.ponumber,
+            vendorname: bankData.vendorname || updatedRowData.vendorname,
+          };
+          console.log("Updated Row Data after adding bank details:", updatedRowData);
+        })
+        .catch(error => {
+          console.error("Error fetching bank data:", error);
+        })
+      : Promise.resolve();
+
+    const devPromise = rowData?.development
+      ? axios.get(`${TRANSACTIONS_API}/getDevData/${rowData.development}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+        .then(response => {
+          console.log("Development Data Received", response.data);
+          const devData = response.data;
+          console.log("Development Data:", devData);
+          // Append development data fields to updatedRowData
+          updatedRowData = {
+            ...updatedRowData,
+            payfor: devData.payfor || updatedRowData.payfor,
+            // Include any additional fields from devData as needed
+          };
+          console.log("Updated Row Data after adding development details:", updatedRowData);
+        })
+        .catch(error => {
+          console.error("Error fetching development data:", error);
+        })
+      : Promise.resolve();
+
+    // Wait for both (or either) API call(s) to finish before updating rowData and opening the modal
+    Promise.all([bankPromise, devPromise]).then(() => {
+      setEditData(updatedRowData);
+      // console.log("Edit Data:", );
+      setOpenModal(true);
+    });
+  };
   const handleCloseModal = () => {
     fetchData();
     setOpenModal(false);
@@ -152,7 +225,18 @@ function Home() {
     setSelectedData(rowData);
     setOpenPopup(true);
   };
+  const handleUpdateRow = async (updatedRow) => {
+    console.log("Updated Data:", updatedRow);
 
+    // Ensure both IDs are correct
+    setData((prevData) =>
+      prevData.map((row) => {
+        console.log("Row ID:", row.id, "Updated Row ID:", updatedRow.id);
+        return row.id === updatedRow.id ? updatedRow : row;
+      })
+    );
+    handleCloseModal(); // Close the modal after updating
+  };
   const handleClosePopup = () => {
     fetchData();
     setOpenPopup(false);
@@ -374,7 +458,7 @@ function Home() {
             data={selectedData} // Send the raw data
             userData={userData}
           />
-          <ModalForm open={openModal} handleClose={handleCloseModal} />
+          <ModalForm open={openModal} handleClose={handleCloseModal} editData={editData} handleUpdateRow={handleUpdateRow} />
         </>
       )}
     </ThemeProvider>

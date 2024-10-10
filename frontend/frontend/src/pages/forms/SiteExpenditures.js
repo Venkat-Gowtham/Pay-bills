@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect } from "react";
 import {
   Button,
   TextField,
@@ -10,22 +10,29 @@ import {
   FormControl,
   InputLabel,
   Box,
+  IconButton,
+  Divider,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 import { DataContext } from "../../context/dataprovider";
 import Loader from "../../loader/loader.js";
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
-function PaymentRequest() {
+function PaymentRequest({ initialFormData, handleClose, handleUpdateRow }) {
   const [otherRemarks, setOtherRemarks] = useState("");
 
   const [loading, setLoading] = useState(null);
   const { userData, notify } = useContext(DataContext);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [formData, setFormData] = useState({
+  const [removedUrls, setRemovedUrls] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [formState, setFormData] = useState({
     amount: "",
     details: "",
     projectId: "",
+    BankId: "",
+    development: "",
     receiverId: "",
     rejectedcause: "",
     senderId: "",
@@ -42,7 +49,18 @@ function PaymentRequest() {
     ponumber: "",
     accountNumber: "",
     ifsc: "",
+    id: "",
   });
+  useEffect(() => {
+    if (initialFormData) {
+      console.log("initialFormData", initialFormData);
+      setFormData(initialFormData);
+      const existingUrls = Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : [];
+      setImagePreviews(existingUrls);
+      setSelectedFiles([]); // Clear selected files when loading new form data
+      setRemovedUrls([]); // Ensure no URLs are marked as removed when loading new data
+    }
+  }, [initialFormData]);
 
   const reasons = ["Testing Reason", "Other (Entry manually)"];
   const projects = ["P23", "P27"];
@@ -66,22 +84,19 @@ function PaymentRequest() {
   };
 
   const handleFileChange = (event) => {
-    const files = Array.from(event.target.files);
-    setSelectedFiles((prevFiles) => [
-      ...prevFiles,
-      ...files.filter(
-        (file) => !prevFiles.some((prevFile) => prevFile.name === file.name)
-      ),
-    ]);
+    const newFiles = Array.from(event.target.files);
+    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
   const uploadImage = async (image) => {
     const formData = new FormData();
     const mail = userData.email;
-
     formData.append("file", image);
     formData.append("public_id", `Data/${mail}/upload_${Date.now()}`);
     formData.append("upload_preset", "Default");
+
     try {
       const response = await fetch(
         `${IMAGE_UPLOAD}`,
@@ -90,18 +105,39 @@ function PaymentRequest() {
           body: formData,
         }
       );
+
       if (!response.ok) {
-        throw new Error(`Failed to upload image: ${response.statusText}`);
+        const errorMessage = await response.text(); // Get error message from response body
+        throw new Error(`Failed to upload image: ${response.status} ${response.statusText} - ${errorMessage}`);
       }
       const result = await response.json();
-      alert("Uploaded Image");
-      return result.secure_url;
+      alert("Uploaded Image successfully");
+      return result.secure_url; // Return the secure URL of the uploaded image
     } catch (error) {
-      console.error("Upload failed:", error);
-      return null;
+      alert(`Upload failed: ${error.message}`); // Alert user of the error
+      return null; // Return null in case of failure
     }
   };
 
+
+  const formDataToObject = (formData) => {
+    // console.log("formData");
+    const object = {};
+    formData.forEach((value, key) => {
+      object[key] = value;
+    });
+    return object;
+  };
+  const handleRemoveImage = (url) => {
+    if (initialFormData.urilinks.includes(url)) {
+      setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
+    }
+    setImagePreviews((prev) => prev.filter((img) => img !== url));
+    const index = imagePreviews.indexOf(url);
+    if (index !== -1) {
+      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    }
+  };
   const handleSubmit = async (event) => {
     event.preventDefault();
     const {
@@ -111,94 +147,152 @@ function PaymentRequest() {
       vendorname,
       accountNumber,
       ifsc,
+      AccountantId,
+      permitteby,
+      rejectedcause,
       details,
-    } = formData;
-
+      PaymentMethods,
+      BankId,
+      development,
+    } = formState;
     // Use otherRemarks as details if "Other" is selected
     const finalDetails =
-      formData.details === "Other (Entry manually)" ? otherRemarks : details;
-
-    if (
-      (ponumber || accountNumber || ifsc) &&
-      (!ponumber || !accountNumber || !ifsc)
-    ) {
-      alert(
-        "Please complete all fields: PO Number, Account Number, and IFSC Code."
-      );
-      return;
-    }
-
-    if (selectedFiles.length > 0 && finalDetails && amount) {
-      try {
-        setLoading(true);
-        const imageUrls = await Promise.all(
-          selectedFiles.map((file) => uploadImage(file))
+      formState.details === "Other (Entry manually)" ? otherRemarks : details;
+      if (
+        (ponumber || accountNumber || ifsc) &&
+        (!ponumber || !accountNumber || !ifsc)
+      ) {
+        alert(
+          "Please complete all fields: PO Number, Account Number, and IFSC Code."
         );
-        const validImageUrls = imageUrls.filter((url) => url !== null);
+        return;
+      }
+      if (!amount || !finalDetails) {
+        alert("Please complete all fields: Amount and Remarks");
+        return;
+      }
+      let validImageUrls = [];
 
-        if (validImageUrls.length > 0) {
+      if (selectedFiles.length > 0 || imagePreviews.length > 0) { // Check for new or existing images
+        try {
+          setLoading(true);
+          const existingUrls = Array.isArray(formState.urilinks) ? formState.urilinks : [];
+          const filteredExistingUrls = existingUrls.filter(url => !removedUrls.includes(url));
+          console.log("filteredExistingUrls", filteredExistingUrls);
+          let finalImageUrls = [];
+          if (selectedFiles.length > 0) {
+            const imageUrls = await Promise.all(
+              selectedFiles.map((file) => uploadImage(file)) // Upload actual file objects
+            );
+            validImageUrls = imageUrls.filter((url) => url !== null);
+            if (validImageUrls.length > 0) {
+              finalImageUrls = [...new Set([...validImageUrls, ...filteredExistingUrls])];
+            }
+          }
+
+          // Prepare submission data
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
-          submissionData.append("details", finalDetails); // Use finalDetails here
-          submissionData.append("imageUrls", JSON.stringify(validImageUrls));
+          submissionData.append("details", details);
+          submissionData.append("imageUrls", JSON.stringify(finalImageUrls));
           submissionData.append("senderId", userData.email);
-          submissionData.append("receiverId", userData.mappedAdminId);
+          submissionData.append("receiverId", userData.mappedAdminId );
           submissionData.append("senderName", userData.name);
-          submissionData.append("AccountantId", userData.mappedAccountantId);
           submissionData.append("amount", amount);
           submissionData.append("ponumber", ponumber);
           submissionData.append("vendorname", vendorname);
           submissionData.append("accountNumber", accountNumber);
           submissionData.append("ifsc", ifsc);
-          submissionData.append("PaymentMethods", "Site Expenditure");
+          submissionData.append("PaymentMethods", PaymentMethods || "Site Expenditure");
+          submissionData.append("status", "Submitted");
+          submissionData.append("permitteby", permitteby || null);
+          submissionData.append("AccountantId", userData.mappedAccountantId || "");
+          submissionData.append("rejectedcause", rejectedcause);
+          submissionData.append("BankId", BankId);
+          submissionData.append("development", development);
+          submissionData.append("timestamp", new Date().toISOString());
           const token = localStorage.getItem("token");
 
-          const response = await axios.post(
-            `${TRANSACTIONS_API}/submitform1`,
-            submissionData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+          let response;
+          if (initialFormData && initialFormData.id) {
+            // Update the existing record
+            response = await axios.put(
+              `${TRANSACTIONS_API}/update/${initialFormData.id}`,
+              submissionData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            console.log(response.data.data);
+            const updatedRowObject = formDataToObject(submissionData);
+            updatedRowObject.id = initialFormData.id;
+            handleUpdateRow(updatedRowObject);
+            alert("Form updated successfully");
+          } else {
+            // Create a new record
+            response = await axios.post(
+              `${TRANSACTIONS_API}/submitform1`,
+              submissionData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            alert("Form submitted successfully");
+          }
+          console.log(response);
+
           if (response.status === 200) {
             notify(userData.mappedAdminId, {
               project: projectId,
               amount: amount,
               details: finalDetails,
             });
+
+            // Reset state after successful submission
             setSelectedFiles([]);
+            setImagePreviews([]);
             setFormData({
-              projectId: "",
-              details: "",
               amount: "",
-              ponumber: "",
-              vendorname: "",
-              accountNumber: "",
+              details: "",
+              projectId: "",
+              BankId: "",
+              development: "",
+              receiverId: "",
+              rejectedcause: "",
+              senderId: "",
+              senderName: "",
+              status: "",
+              timestamp: "",
+              urilinks: [], // Reset urilinks
+              AccountantUri: [],
+              Recipts: [],
+              AccountantId: "",
+              permitteby: null,
               PaymentMethods: "Site Expenditure",
+              vendorname: "",
+              ponumber: "",
+              accountNumber: "",
               ifsc: "",
+              id: "",
             });
             setOtherRemarks(""); // Clear the otherRemarks field
-            alert("Form submitted successfully");
+            handleClose();
           }
-          notify({
-            project: projectId,
-            amount: amount,
-            details: details,
-          });
-        } else {
-          alert("Image upload failed. Please try again.");
+        } catch (error) {
+          console.error("Error sending data:", error);
+          alert("Error sending data");
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
-      } catch (error) {
-        console.error("Error sending data:", error);
-        alert("Error sending data");
+      } else {
+        alert("Please complete all fields before submitting");
       }
-    } else {
-      alert("Please complete all fields before submitting");
-    }
   };
 
   return (
@@ -214,7 +308,7 @@ function PaymentRequest() {
                 <InputLabel>Project</InputLabel>
                 <Select
                   name="projectId"
-                  value={formData.projectId}
+                  value={formState.projectId}
                   onChange={handleInputChange}
                   required
                 >
@@ -231,7 +325,7 @@ function PaymentRequest() {
               <TextField
                 label="Amount"
                 name="amount"
-                value={formData.amount}
+                value={formState.amount}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -241,7 +335,7 @@ function PaymentRequest() {
               <TextField
                 label="PO Number"
                 name="ponumber"
-                value={formData.ponumber}
+                value={formState.ponumber}
                 onChange={handleInputChange}
                 fullWidth
               />
@@ -250,7 +344,7 @@ function PaymentRequest() {
               <TextField
                 label="Vendor Name"
                 name="vendorname"
-                value={formData.vendorname}
+                value={formState.vendorname}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -260,7 +354,7 @@ function PaymentRequest() {
               <TextField
                 label="Account Number"
                 name="accountNumber"
-                value={formData.accountNumber}
+                value={formState.accountNumber}
                 onChange={handleInputChange}
                 fullWidth
               />
@@ -269,7 +363,7 @@ function PaymentRequest() {
               <TextField
                 label="IFSC Code"
                 name="ifsc"
-                value={formData.ifsc}
+                value={formState.ifsc}
                 onChange={handleInputChange}
                 fullWidth
               />
@@ -282,7 +376,7 @@ function PaymentRequest() {
                 <Select
                   label="Remarks"
                   name="details"
-                  value={formData.details}
+                  value={formState.details}
                   onChange={handleInputChange}
                   fullWidth
                 >
@@ -296,7 +390,7 @@ function PaymentRequest() {
             </Grid>
 
             {/* Conditionally render the text field if 'Other' is selected */}
-            {formData.details === "Other (Entry manually)" && (
+            {formState.details === "Other (Entry manually)" && (
               <Grid item xs={12}>
                 <TextField
                   label="Enter Remark"
@@ -308,7 +402,39 @@ function PaymentRequest() {
                 />
               </Grid>
             )}
-
+            <Divider />
+            {Array.isArray(imagePreviews) && imagePreviews.length > 0 && (
+              <Box mt={2}>
+                <Typography variant="h6">Selected Files:</Typography>
+                <Box display="flex" flexWrap="wrap">
+                  {Array.isArray(imagePreviews) && imagePreviews?.map((url, index) => (
+                    <Box position="relative" key={index} marginRight="10px" marginBottom="10px">
+                      <img
+                        src={url}
+                        alt={`url ${index + 1}`}
+                        style={{
+                          width: "100px",
+                          height: "100px",
+                          objectFit: "cover",
+                        }}
+                      />
+                      <IconButton
+                        onClick={() => handleRemoveImage(url)} // Pass the image URL instead of index
+                        style={{
+                          position: "absolute",
+                          top: 0,
+                          right: 0,
+                          color: "red",
+                        }}
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+            <Divider />
             <Grid item xs={12}>
               <TextField
                 label="Pick Files"
@@ -320,32 +446,6 @@ function PaymentRequest() {
                   shrink: true,
                 }}
               />
-              {selectedFiles.length > 0 && (
-                <Box sx={{ marginTop: "16px" }}>
-                  <Typography variant="h6">Selected Files:</Typography>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 1,
-                      marginTop: "8px",
-                    }}
-                  >
-                    {selectedFiles.map((file, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography>{file.name}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              )}
             </Grid>
             {loading && <Loader />}
             <Grid item xs={12}>

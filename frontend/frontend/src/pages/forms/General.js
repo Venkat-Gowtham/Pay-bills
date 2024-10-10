@@ -1,6 +1,5 @@
 // form3
-
-import React, { useState, useContext } from "react";
+import React, { useState, useContext , useEffect} from "react";
 import {
   Button,
   Grid,
@@ -12,22 +11,28 @@ import {
   MenuItem,
   FormControl,
   Box,
+  Divider,
+  IconButton,
 } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
 import { DataContext } from "../../context/dataprovider";
 import Loader from "../../loader/loader.js";
 const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
 const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
-function General() {
+function General({ initialFormData, handleClose, handleUpdateRow }) {
   const [loading, setLoading] = useState(null);
   const { userData, notify } = useContext(DataContext);
+  const [otherRemarks, setOtherRemarks] = useState("");
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [formData, setFormData] = useState({
-    projectId: "",
-    payfor: "",
+  const [removedUrls, setRemovedUrls] = useState([]);
+  const [formState, setFormData] = useState({
     amount: "",
     details: "",
-    PaymentMethods: "General",
+    projectId: "",
+    BankId: "",
+    development: "",
     receiverId: "",
     rejectedcause: "",
     senderId: "",
@@ -39,32 +44,51 @@ function General() {
     Recipts: [],
     AccountantId: "",
     permitteby: null,
+    PaymentMethods: "General",
     vendorname: "",
     ponumber: "",
     accountNumber: "",
     ifsc: "",
+    id: "",
+    payfor: "",
   });
-
+  useEffect(() => {
+    if (initialFormData) {
+      console.log("initialFormData", initialFormData);
+      setFormData(initialFormData);
+       const existingUrls = Array.isArray(initialFormData.urilinks) ? initialFormData.urilinks : [];
+       setImagePreviews(existingUrls);
+       setSelectedFiles([]); // Clear selected files when loading new form data
+       setRemovedUrls([]); // Ensure no URLs are marked as removed when loading new data
+    }
+  }, [initialFormData]);
   const payforOptions = ["Rent", "Business and Development"];
   const reasons = ["General Reason", "Other (Entry manually)"];
   const projects = ["P23", "P27"];
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
-    setFormData((prevFormData) => ({
-      ...prevFormData,
-      [name]: value,
-    }));
+
+    if (name === "details" && value === "Other (Entry manually)") {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        details: value,
+      }));
+    } else if (name === "otherRemarks") {
+      setOtherRemarks(value);
+    } else {
+      setFormData((prevFormData) => ({
+        ...prevFormData,
+        [name]: value,
+      }));
+    }
   };
 
   const handleFileChange = (event) => {
-    const files = Array.from(event.target.files);
-    setSelectedFiles((prevFiles) => [
-      ...prevFiles,
-      ...files.filter(
-        (file) => !prevFiles.some((prevFile) => prevFile.name === file.name)
-      ),
-    ]);
+    const newFiles = Array.from(event.target.files);
+    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
   };
 
   const uploadImage = async (image) => {
@@ -82,14 +106,37 @@ function General() {
           body: formData,
         }
       );
+
       if (!response.ok) {
-        throw new Error(`Failed to upload image: ${response.statusText}`);
+        const errorMessage = await response.text(); // Get error message from response body
+        throw new Error(`Failed to upload image: ${response.status} ${response.statusText} - ${errorMessage}`);
       }
       const result = await response.json();
-      return result.secure_url;
+      alert("Uploaded Image successfully");
+      return result.secure_url; // Return the secure URL of the uploaded image
     } catch (error) {
-      console.error("Upload failed:", error);
-      return null;
+      alert(`Upload failed: ${error.message}`); // Alert user of the error
+      return null; // Return null in case of failure
+    }
+  };
+
+  const formDataToObject = (formData) => {
+    console.log("formData");
+    const object = {};
+    formData.forEach((value, key) => {
+      object[key] = value;
+    });
+    return object;
+  };
+
+  const handleRemoveImage = (url) => {
+    if (initialFormData.urilinks.includes(url)) {
+      setRemovedUrls((prev) => [...prev, url]); // Track removed existing URLs
+    }
+    setImagePreviews((prev) => prev.filter((img) => img !== url));
+    const index = imagePreviews.indexOf(url);
+    if (index !== -1) {
+      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     }
   };
 
@@ -102,34 +149,46 @@ function General() {
       vendorname,
       accountNumber,
       ifsc,
+      AccountantId,
       details,
+      permitteby,
+      rejectedcause,
+      BankId,
+      development,
       PaymentMethods,
       payfor,
-    } = formData;
-
-    if (!projectId || !amount || !payfor || !details) {
+    } = formState;
+    const finalDetails =
+    formState.details === "Other (Entry manually)" ? otherRemarks : details;
+    if (!projectId || !amount || !payfor || !details || !amount || !projectId || !payfor) {
       alert("Please complete all required fields.");
       return;
     }
-    notify({
-      project: projectId,
-      amount: amount,
-      details: details,
-    });
-    if (selectedFiles.length > 0 && details && amount && projectId && payfor) {
-      try {
-        setLoading(true);
-        const imageUrls = await Promise.all(
-          selectedFiles.map((file) => uploadImage(file))
-        );
-        const validImageUrls = imageUrls.filter((url) => url !== null);
+    let validImageUrls = [];
 
-        if (validImageUrls.length > 0) {
+      if (selectedFiles.length > 0 || imagePreviews.length > 0) { // Check for new or existing images
+        try {
+          setLoading(true);
+          const existingUrls = Array.isArray(formState.urilinks) ? formState.urilinks : [];
+          const filteredExistingUrls = existingUrls.filter(url => !removedUrls.includes(url));
+          console.log("filteredExistingUrls", filteredExistingUrls);
+          let finalImageUrls = [];
+          if (selectedFiles.length > 0) {
+            const imageUrls = await Promise.all(
+              selectedFiles.map((file) => uploadImage(file)) // Upload actual file objects
+            );
+            validImageUrls = imageUrls.filter((url) => url !== null);
+            if (validImageUrls.length > 0) {
+              finalImageUrls = [...new Set([...validImageUrls, ...filteredExistingUrls])];
+            }
+          }
+
+          // Prepare submission data
           const submissionData = new FormData();
           submissionData.append("projectId", projectId);
-          submissionData.append("details", details);
+          submissionData.append("details", finalDetails);
           submissionData.append("payfor", payfor);
-          submissionData.append("imageUrls", JSON.stringify(validImageUrls));
+          submissionData.append("imageUrls", JSON.stringify(finalImageUrls));
           submissionData.append("senderId", userData.email);
           submissionData.append("receiverId", userData.mappedAdminId);
           submissionData.append("AccountantId", userData.mappedAccountantId);
@@ -139,46 +198,96 @@ function General() {
           submissionData.append("vendorname", vendorname);
           submissionData.append("accountNumber", accountNumber);
           submissionData.append("ifsc", ifsc);
-          submissionData.append("PaymentMethods", PaymentMethods);
-
+          submissionData.append("PaymentMethods", PaymentMethods || "General");
+          submissionData.append("permitteby", permitteby || null);
+          submissionData.append("rejectedcause", rejectedcause || "");
+          submissionData.append("BankId", BankId || "");
+          submissionData.append("development", development || "");
+          submissionData.append("timestamp", new Date().toISOString());
+          submissionData.append("status", "Submitted");
           const token = localStorage.getItem("token");
 
-          const response = await axios.post(
-            `${TRANSACTIONS_API}/submitform1`,
-            submissionData,
-            {
-              headers: {
-                "Content-Type": "multipart/form-data",
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-          if (response.status === 200) {
+          let response;
+          if (initialFormData && initialFormData.id) {
+            // Update the existing record
+            response = await axios.put(
+              `${TRANSACTIONS_API}/update/${initialFormData.id}`,
+              submissionData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            console.log(response.data.data);
+            const updatedRowObject = formDataToObject(submissionData);
+            updatedRowObject.id = initialFormData.id;
+            handleUpdateRow(updatedRowObject);
+            alert("Form updated successfully");
+          } else {
+            // Create a new record
+            response = await axios.post(
+              `${TRANSACTIONS_API}/submitform1`,
+              submissionData,
+              {
+                headers: {
+                  "Content-Type": "multipart/form-data",
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
             alert("Form submitted successfully");
-            setSelectedFiles([]);
-            setFormData({
-              projectId: "",
-              details: "",
-              amount: "",
-              ponumber: "",
-              vendorname: "",
-              accountNumber: "",
-              payfor: "",
-              PaymentMethods: "General",
-              ifsc: "",
-            });
           }
-        } else {
-          alert("Image upload failed. Please try again.");
+          console.log(response);
+
+          if (response.status === 200) {
+            notify(userData.mappedAdminId, {
+              project: projectId,
+              amount: amount,
+              details: finalDetails,
+            });
+
+            // Reset state after successful submission
+            setSelectedFiles([]);
+            setImagePreviews([]);
+            setFormData({
+              amount: "",
+              details: "",
+              projectId: "",
+              BankId: "",
+              development: "",
+              receiverId: "",
+              rejectedcause: "",
+              senderId: "",
+              senderName: "",
+              status: "",
+              timestamp: "",
+              urilinks: [], // Reset urilinks
+              AccountantUri: [],
+              Recipts: [],
+              AccountantId: "",
+              permitteby: null,
+              PaymentMethods: "General",
+              vendorname: "",
+              ponumber: "",
+              accountNumber: "",
+              ifsc: "",
+              payfor: "",
+              id: "",
+            });
+            setOtherRemarks(""); // Clear the otherRemarks field
+            handleClose();
+          }
+        } catch (error) {
+          console.error("Error sending data:", error);
+          alert("Error sending data");
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
-      } catch (error) {
-        console.error("Error sending data:", error);
-        alert("Error sending data");
+      } else {
+        alert("Please complete all fields before submitting");
       }
-    } else {
-      alert("Please complete all fields before submitting");
-    }
   };
 
   return (
@@ -194,7 +303,7 @@ function General() {
                 <InputLabel>Project</InputLabel>
                 <Select
                   name="projectId"
-                  value={formData.projectId}
+                  value={formState.projectId}
                   onChange={handleInputChange}
                 >
                   {projects.map((project, index) => (
@@ -210,7 +319,7 @@ function General() {
               <TextField
                 label="Amount"
                 name="amount"
-                value={formData.amount}
+                value={formState.amount}
                 onChange={handleInputChange}
                 fullWidth
                 required
@@ -222,7 +331,7 @@ function General() {
                 <InputLabel>Pay Type</InputLabel>
                 <Select
                   name="payfor"
-                  value={formData.payfor}
+                  value={formState.payfor}
                   onChange={handleInputChange}
                 >
                   {payforOptions.map((type, index) => (
@@ -239,7 +348,7 @@ function General() {
                 <InputLabel>Details</InputLabel>
                 <Select
                   name="details"
-                  value={formData.details}
+                  value={formState.details}
                   onChange={handleInputChange}
                 >
                   {reasons.map((reason, index) => (
@@ -251,19 +360,51 @@ function General() {
               </FormControl>
             </Grid>
 
-            {formData.details === "Other (Entry manually)" && (
+            {formState.details === "Other (Entry manually)" && (
               <Grid item xs={12}>
                 <TextField
                   label="Enter Remark"
                   name="otherRemarks"
-                  value={formData.otherRemarks || ""}
+                  value={otherRemarks}
                   onChange={handleInputChange}
                   fullWidth
                   required
                 />
               </Grid>
             )}
-
+          <Divider />
+          {Array.isArray(imagePreviews) && imagePreviews.length > 0 && (
+            <Box mt={2}>
+              <Typography variant="h6">Selected Files:</Typography>
+              <Box display="flex" flexWrap="wrap">
+                {Array.isArray(imagePreviews) &&  imagePreviews?.map((url, index) => (
+                  <Box  position="relative" key={index} marginRight="10px" marginBottom="10px">
+                    <img
+                    src ={url}
+                    alt={`url ${index + 1}`}
+                    style={{
+                      width: "100px",
+                      height: "100px",
+                      objectFit: "cover",
+                    }}
+                  />
+                  <IconButton
+                    onClick={() => handleRemoveImage(url)}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      right: 0,
+                      color: "red",
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          )}
+          <Divider />
             <Grid item xs={12}>
               <TextField
                 label="Pick Files"
@@ -273,32 +414,6 @@ function General() {
                 fullWidth
                 InputLabelProps={{ shrink: true }}
               />
-              {selectedFiles.length > 0 && (
-                <Box sx={{ marginTop: "16px" }}>
-                  <Typography variant="h6">Selected Files:</Typography>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: 1,
-                      marginTop: "8px",
-                    }}
-                  >
-                    {selectedFiles.map((file, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography>{file.name}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              )}
             </Grid>
             {loading && <Loader />}
             <Grid item xs={12}>
