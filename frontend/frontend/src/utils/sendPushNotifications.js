@@ -15,7 +15,7 @@ const sendPushNotification = async (session, title, body, transactionData) => {
 
   try {
     const response = await axios.post(
-      "http://localhost:8080/api/notifications",
+      "http://3.110.186.200:8080/api/notifications",
       message,
       {
         headers: {

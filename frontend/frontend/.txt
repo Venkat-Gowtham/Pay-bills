@@ -144,7 +144,7 @@ const PopupCard = ({ open, onClose, data, userData }) => {
   const handleStatus = async (action, additionalData = {}) => {
     const token = localStorage.getItem("token");
     const response = await axios.post(
-      `http://localhost:8080/api/updatestatus/statusControll`,
+      `http://3.110.186.200:8080/api/updatestatus/statusControll`,
       {
         id: data.id,
         action,

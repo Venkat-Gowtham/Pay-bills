@@ -79,7 +79,7 @@ function Home() {
         try {
           const token = localStorage.getItem("token");
           const response = await axios.get(
-            `http://localhost:8080/api/transactions/getClientData/${clientId}`,
+            `http://3.110.186.200:8080/api/transactions/getClientData/${clientId}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,

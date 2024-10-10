@@ -23,7 +23,7 @@ function SignIn() {
       console.log(AUTH_API);
       try {
         const response = await axios.post(
-          "http://localhost:8080/api/auth/login",
+          "http://3.110.186.200:8080/api/auth/login",
           { email, password }
         );
         const { email: userEmail } = response.data; // Getting email from response
