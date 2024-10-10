@@ -1,11 +1,11 @@
 // DashBoard.js
 import React from "react";
 import { Routes, Route } from "react-router-dom";
-import NavBar from "./navbar/navbar";
-import About from "./about/about";
-import Contact from "./contact/contact";
-import Home from "./home/home";
-import ProtectedRoute from "../Protector/RouteProtector"; // Import the ProtectedRoute component
+import NavBar from "./navbar/navbar.js";
+import About from "./about/about.js";
+import Contact from "./contact/contact.js";
+import Home from "./home/home.js";
+import ProtectedRoute from "../Protector/RouteProtector.js"; // Import the ProtectedRoute component
 import style from "./dashboard.module.css";
 
 function DashBoard() {

@@ -4,12 +4,11 @@ import SendIcon from "@mui/icons-material/Send";
 import styles from "./sign.module.css";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { DataContext } from "../../context/dataprovider"; // Import the context
-const AUTH_API = process.env.REACT_APP_AUTH_API;
+import { DataContext } from "../../context/dataprovider.js"; // Import the context
 function SignIn() {
   const navigate = useNavigate();
   const { fetchData } = useContext(DataContext); // Use the context
-
+const AUTH_API = process.env.REACT_APP_AUTH_API;
   const [data, setData] = React.useState({
     email: "",
     password: "",
@@ -23,7 +22,7 @@ function SignIn() {
       console.log(AUTH_API);
       try {
         const response = await axios.post(
-          "http://localhost:8080/api/auth/login",
+          `${AUTH_API}/login`,
           { email, password }
         );
         const { email: userEmail } = response.data; // Getting email from response

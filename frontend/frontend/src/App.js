@@ -1,10 +1,10 @@
 import React from "react";
 import "./App.css";
-import Login from "./login/login";
-import Dashboard from "./pages/dashboard";
+import Login from "./login/login.js";
+import Dashboard from "./pages/dashboard.js";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { DataProvider } from "./context/dataprovider"; // Import your DataProvider
-import FormComponent from "./Practice/SaveToExel";
+import { DataProvider } from "./context/dataprovider.js"; // Import your DataProvider
+import FormComponent from "./Practice/SaveToExel.js";
 // import Loader from "./loader/loader";
 function App() {
   return (

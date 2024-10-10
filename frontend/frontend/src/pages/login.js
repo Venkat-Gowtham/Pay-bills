@@ -1,6 +1,7 @@
 // SignIn.js
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+const REACT_APP_MAIN_API = process.env.REACT_APP_MAIN_API;
 import axios from 'axios';
 function Login() {
   const [email, setEmail] = useState('');
@@ -8,7 +9,7 @@ function Login() {
   const navigate = useNavigate();
   const handleSignIn = () => {
     if (email !== '' && password !== '') {
-        axios.post('http://localhost:8080/login', { email, password })
+        axios.post(`${REACT_APP_MAIN_API}/login`, { email, password })
             .then((res) => {
               const { uid, email } = res.data;
 

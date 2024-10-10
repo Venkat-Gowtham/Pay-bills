@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
-const FormComponent = () => {
+const REACT_APP_MAIN_API = process.env.REACT_APP_MAIN_API;
+function FormComponent (){
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,7 +15,7 @@ const FormComponent = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:8080/submit-form', formData);
+      await axios.post(`${REACT_APP_MAIN_API}/submit-form`, formData);
       alert('Form submitted successfully');
     } catch (error) {
       console.error('Error submitting form', error);

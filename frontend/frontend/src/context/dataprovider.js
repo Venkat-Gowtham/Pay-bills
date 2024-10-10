@@ -1,18 +1,19 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
-import sendPushNotification from "../utils/sendPushNotifications";
-const AUTH_API = process.env.REACT_APP_AUTH_API;
-const AUTH_USER = process.env.REACT_APP_AUTH_USER;
-const NOTIFY_USER = process.env.REACT_APP_NOTIFY_USER;
-const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
-const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
-const UPDATE_STATUS = process.env.REACT_APP_UPDATE_STATUS;
+import sendPushNotification from "../utils/sendPushNotifications.js";
+
 // Create a context
 export const DataContext = createContext();
 
 export const DataProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const AUTH_API = process.env.REACT_APP_AUTH_API;
+  const AUTH_USER = process.env.REACT_APP_AUTH_USER;
+  // const NOTIFY_USER = process.env.REACT_APP_NOTIFY_USER;
+  const TRANSACTIONS_API = process.env.REACT_APP_TRANSACTIONS_API;
+  // const IMAGE_UPLOAD = process.env.REACT_APP_IMAGE_UPLOAD;
+  // const UPDATE_STATUS = process.env.REACT_APP_UPDATE_STATUS;
   const [userData, setUserData] = useState({
     email: "",
     mappedAdminId: "",

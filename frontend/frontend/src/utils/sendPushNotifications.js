@@ -1,5 +1,5 @@
 import axios from "axios";
-
+const IMAGE_URL = process.env.REACT_APP_MAIN_API;
 const sendPushNotification = async (session, title, body, transactionData) => {
   // Prepare the message payload
   console.log(
@@ -15,7 +15,7 @@ const sendPushNotification = async (session, title, body, transactionData) => {
 
   try {
     const response = await axios.post(
-      "http://localhost:8080/api/notifications",
+      `${IMAGE_URL}/api/notifications`,
       message,
       {
         headers: {
